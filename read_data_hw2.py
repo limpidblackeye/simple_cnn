@@ -1,12 +1,17 @@
 '''
 Honor: https://github.com/aymericdamien/TensorFlow-Examples/
 '''
+import os 
+import numpy as np
+import tensorflow as tf
+from sklearn.model_selection import KFold
+
 
 # read_data_hw2.py
-DATASET_PATH = '/path/to/dataset/' # the dataset file or root folder path.
+DATASET_PATH = '../data/dset1/train/' # the dataset file or root folder path.
 
 # Image Parameters
-N_CLASSES = 2
+N_CLASSES = 65
 IMG_HEIGHT = 64
 IMG_WIDTH = 64
 CHANNELS = 3
@@ -52,11 +57,13 @@ def read_images(dataset_path, batch_size):
     # Normalize
     image = image * 1.0/127.5 - 1.0
 
-    # Create batches
-    X, Y = tf.train.batch([image, label], batch_size=batch_size,
-                          capacity=batch_size * 8,
-                          num_threads=4)
+    # # Create batches
+    # X, Y = tf.train.batch([image, label], batch_size=batch_size,
+    #                       capacity=batch_size * 8,
+    #                       num_threads=4)
 
+    # Create dataset
+    X, Y = [image, label]
     return X, Y
 
 
@@ -134,18 +141,30 @@ init = tf.global_variables_initializer()
 # Saver object
 saver = tf.train.Saver()
 
+# -----------------------------------------------
+# Train CNN and get validation by cross validation 
+# -----------------------------------------------
+
+def cross_validation(train_x_all, train_y_all, split_size):
+    results = []
+    kf = KFold(n_splits=split_size)
+    for train_idx, val_idx in kf.split(train_x_all, train_y_all):
+        train_x = train_x_all[train_idx]
+        train_y = train_y_all[train_idx]
+        val_x = train_x_all[val_idx]
+        val_y = train_y_all[val_idx]
+        run_train(session, train_x, train_y)
+        results.append(session.run(accuracy, feed_dict={x: val_x, y: val_y}))
+    return results
+
 # Start training
 with tf.Session() as sess:
-
     # Run the initializer
     sess.run(init)
-
     # Start the data queue
     tf.train.start_queue_runners()
-
     # Training cycle
     for step in range(1, num_steps+1):
-
         if step % display_step == 0:
             # Run optimization and calculate batch loss and accuracy
             _, loss, acc = sess.run([train_op, loss_op, accuracy])
@@ -157,7 +176,6 @@ with tf.Session() as sess:
             sess.run(train_op)
 
     print("Optimization Finished!")
-
     # Save your model
     saver.save(sess, 'my_tf_model')
 
